@@ -1,5 +1,5 @@
 import { DataTypes } from "sequelize";
-import sequelize from "./index.js";
+import  {sequelize } from "./index.js";
 
 const Log = sequelize.define("Log", {
   employee_id: { type: DataTypes.STRING, allowNull: false },
