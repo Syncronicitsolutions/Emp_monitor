@@ -1,16 +1,14 @@
 {
   "name": "employee-tracker-server",
   "version": "1.0.0",
-  "main": "server.ts",
   "type": "module",
+  "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsc && node dist/server.js",
     "build": "tsc"
   },
   "dependencies": {
-    "@types/express": "^5.0.3",
-    "@types/node": "^24.0.1",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
@@ -21,7 +19,9 @@
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
     "@types/multer": "^1.4.13",
+    "@types/node": "^24.0.1",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
