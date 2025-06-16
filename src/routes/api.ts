@@ -1,18 +1,37 @@
 import express, { Request, Response } from "express";
 import multer from "multer";
+import multerS3 from "multer-s3";
 import path from "path";
+import { S3Client } from "@aws-sdk/client-s3";
+import dotenv from "dotenv";
 import Employee from "../models/Employee.js";
 import Log from "../models/Log.js";
 
-const __dirname = path.resolve();
+dotenv.config();
+
 const apiRoutes = express.Router();
 
-// ==== Multer for Uploads ====
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(__dirname, "uploads")),
-  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
+// ==== AWS S3 Setup ====
+const s3 = new S3Client({
+  credentials: {
+    accessKeyId: "AKIAZPROAMREEQLRVAIV",
+    secretAccessKey: "qbR4kbzMMMm0Wg0G4/L5hX1+Po7vShLhTN4MISSl",
+  },
+  region: "ap-south-1", // or your region
 });
-const upload = multer({ storage });
+// ==== Multer S3 Storage ====
+const upload = multer({
+  storage: multerS3({
+    s3,
+    bucket: "kalkiseva-uploads",
+    acl: "public-read",
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: (req, file, cb) => {
+      const filename = `logs/${Date.now()}-${file.originalname}`;
+      cb(null, filename);
+    },
+  }),
+});
 
 // ==== Register Employee ====
 apiRoutes.post("/register", async (req: Request, res: Response) => {
@@ -29,7 +48,7 @@ apiRoutes.post("/register", async (req: Request, res: Response) => {
   }
 });
 
-// ==== Upload Log ====
+// ==== Upload Log to S3 ====
 apiRoutes.post(
   "/log",
   upload.fields([
@@ -40,14 +59,14 @@ apiRoutes.post(
     const { employeeId, webLog, systemInfo, status, onTimeMinutes } = req.body;
 
     try {
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const files = req.files as { [fieldname: string]: Express.MulterS3.File[] };
       const screenshot = files?.["screenshot"]?.[0];
       const webcam = files?.["webcam"]?.[0];
 
       const log = await Log.create({
         employee_id: employeeId,
-        screenshot_url: screenshot ? `/uploads/${screenshot.filename}` : null,
-        webcam_url: webcam ? `/uploads/${webcam.filename}` : null,
+        screenshot_url: screenshot?.location || null,
+        webcam_url: webcam?.location || null,
         web_log: webLog,
         system_info: systemInfo,
         status,
@@ -95,6 +114,8 @@ apiRoutes.delete("/log/:id", async (req: any, res: any) => {
     const log = await Log.findByPk(id);
     if (!log) return res.status(404).json({ error: "Log not found" });
 
+    // Optional: Delete files from S3 (not shown here)
+
     await log.destroy();
     res.json({ success: true, message: "Log deleted" });
   } catch (err) {
@@ -103,7 +124,7 @@ apiRoutes.delete("/log/:id", async (req: any, res: any) => {
   }
 });
 
-// ==== Get System Status of Each Employee (latest log) ====
+// ==== Get Latest System Status of Each Employee ====
 apiRoutes.get("/status", async (_req: Request, res: Response) => {
   try {
     const [results] =
@@ -126,15 +147,17 @@ apiRoutes.get("/status", async (_req: Request, res: Response) => {
   }
 });
 
-apiRoutes.get("/uptime-summary", async (_req, res) => {
+// ==== Get Uptime Summary for All Employees ====
+apiRoutes.get("/uptime-summary", async (_req: Request, res: Response) => {
   try {
-    const [results] = await Log.sequelize?.query(`
-      SELECT employee_id, SUM(on_time_minutes) as total_uptime_minutes,
-             ROUND(AVG(on_time_minutes), 2) as avg_uptime_minutes
-      FROM "Logs"
-      GROUP BY employee_id
-      ORDER BY total_uptime_minutes DESC
-    `) || [];
+    const [results] =
+      (await Log.sequelize?.query(`
+        SELECT employee_id, SUM(on_time_minutes) as total_uptime_minutes,
+               ROUND(AVG(on_time_minutes), 2) as avg_uptime_minutes
+        FROM "Logs"
+        GROUP BY employee_id
+        ORDER BY total_uptime_minutes DESC;
+      `)) || [];
 
     res.json({ success: true, data: results });
   } catch (err) {
@@ -142,6 +165,5 @@ apiRoutes.get("/uptime-summary", async (_req, res) => {
     res.status(500).json({ error: "Failed to fetch uptime summary." });
   }
 });
-
 
 export default apiRoutes;
