@@ -14,16 +14,16 @@ const apiRoutes = express.Router();
 // ==== AWS S3 Setup ====
 const s3 = new S3Client({
   credentials: {
-    accessKeyId: "AKIAZPROAMREEQLRVAIV",
-    secretAccessKey: "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",
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
   },
-  region: "ap-south-1", // or your region
+  region: process.env.AWS_REGION!,
 });
-// ==== Multer S3 Storage ====
+
 const upload = multer({
   storage: multerS3({
     s3,
-    bucket: "kalkiseva-uploads",
+    bucket: process.env.S3_BUCKET!,
     acl: "public-read",
     contentType: multerS3.AUTO_CONTENT_TYPE,
     key: (req, file, cb) => {
