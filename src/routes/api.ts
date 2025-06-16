@@ -11,7 +11,7 @@ dotenv.config();
 
 const apiRoutes = express.Router();
 
-// ==== AWS S3 Setup ====
+// Initialize S3 client
 const s3 = new S3Client({
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
@@ -20,11 +20,11 @@ const s3 = new S3Client({
   region: process.env.AWS_REGION!,
 });
 
+// Multer S3 storage without ACL
 const upload = multer({
   storage: multerS3({
     s3,
     bucket: process.env.S3_BUCKET!,
-    acl: "public-read",
     contentType: multerS3.AUTO_CONTENT_TYPE,
     key: (req, file, cb) => {
       const filename = `logs/${Date.now()}-${file.originalname}`;
@@ -32,7 +32,6 @@ const upload = multer({
     },
   }),
 });
-
 // ==== Register Employee ====
 apiRoutes.post("/register", async (req: Request, res: Response) => {
   const { employeeId, name, email } = req.body;
